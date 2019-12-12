@@ -857,18 +857,19 @@ rtf.service('server',function($http,$timeout,$rootScope,notificationService,$int
 			$this.getTeams();
 			$this.getUnreadNotifications();
 			$this.getChallenges();
-
-			if(response.data.r!= 3){
-				$this.getUsers();
+			
+			let role = response.data.r;
+			if(role != 3){
+				//$this.getUsers();
 				$this.getGlobalStats([]);
 			}
-			if(response.data.r <= 3){
+			if(role <= 3){
 				$this.getPendingReviews();
-				$this.getCompletedReviews();
+				$this.getCompletedReviews(role);
 				$this.getAvailableExercises();
 				$this.getRunningExercises();
 			}
-			if(response.data.r <= 0){
+			if(role <= 0){
 				$this.getOrganizations();
 				$this.getGateways();
 				$this.getAWSRegions();
@@ -1656,7 +1657,7 @@ rtf.service('server',function($http,$timeout,$rootScope,notificationService,$int
 			console.log('ajax error');
 		});
 	}
-	this.getUsers = function(){
+	this.getUsers = function(userScore = null){
 		var msg = {};
 		msg.action = 'getUsers';
 		var req = {
@@ -1665,6 +1666,17 @@ rtf.service('server',function($http,$timeout,$rootScope,notificationService,$int
 				data: msg,
 		}
 		$http(req).then(function successCallback(response) {
+			if(userScore != null){
+				console.log("getUsers");
+				console.log(response.data);
+				for(const userItem of response.data) {
+					let user = userItem.user;
+					if(userScore[user] != undefined){
+						userItem.score = userScore[user]
+					}
+					console.log("User: " + user + " Score: " + userItem.score);
+				}
+			}
 			$rootScope.$broadcast('usersList:updated',response.data);
 		}, function errorCallback(response) {
 			console.log('ajax error');
@@ -1788,7 +1800,7 @@ rtf.service('server',function($http,$timeout,$rootScope,notificationService,$int
 		});
 	}
 
-	this.getCompletedReviews = function(){
+	this.getCompletedReviews = function(role = null){
 		var msg = {};
 		msg.action = 'getCompletedReviews';
 		var req = {
@@ -1797,6 +1809,26 @@ rtf.service('server',function($http,$timeout,$rootScope,notificationService,$int
 				data: msg,
 		}
 		$http(req).then(function successCallback(response) {
+			console.log("this.getCompletedReviews");
+			console.log(response.data);
+			
+			if(role != null && role != 3){
+				let userScores = {}
+				for(const exerciseCompleted of response.data){
+					let user = exerciseCompleted.user; 
+					let score = exerciseCompleted.score;
+					if(userScores[user] === undefined) {
+						userScores[user] = score;
+					}else {
+						let prevScore = userScores[user];
+						userScores[user] = prevScore + score;
+					}
+				}
+				$this.getUsers(userScores);
+				
+			}
+			
+			
 			$rootScope.$broadcast('completedReviews:updated',response.data);
 		}, function errorCallback(response) {
 			console.log('ajax error');
